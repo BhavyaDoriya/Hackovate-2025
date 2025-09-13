@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+        <title>Airfield Thunderstorm & Wind Alert — Frontend Prototype</title>
+
+        <!-- External CSS -->
+        <link rel="stylesheet" href="style.css">
+
+        <!-- Leaflet CSS -->
+        <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+        <!-- Leaflet JS -->
+        <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    </head>
+    <body>
+        <div class="app" role="application" aria-label="Airfield weather alert dashboard">
+
+        <header>
+            <div class="title">
+                <svg width="42" height="42" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#052233"/><path d="M6 14c2.5-6 9-6 11 0" stroke="#5eead4" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <div>
+                    <h1>Airfield Storm & Wind Alert</h1>
+                    <p id="airfieldName">Airfield: <strong id="airfieldLabel">K-ALPHA (demo)</strong></p>
+                </div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center">
+                <div id="nowStatus" class="status safe">Safe</div>
+                <button class="btn" id="settingsBtn">⚙</button>
+                <button class="btn primary" id="ackAllBtn">Acknowledge All</button>
+            </div>
+        </header>
+
+        <div class="main">
+            <!-- Map Section -->
+            <section class="map-card">
+                <div class="map-topbar">
+                    <div style="display:flex;gap:12px;align-items:center">
+                        <div style="font-weight:700">Live Radar</div>
+                        <div style="color:var(--muted);font-size:13px">Now: <span id="timeLabel">--:--:--</span></div>
+                    </div>
+                    <div class="controls">
+                        <button class="btn" id="togglePlay">Pause</button>
+                        <button class="btn" id="centerBtn">Center</button>
+                        <button class="btn" id="downloadBtn">Export Alerts</button>
+                    </div>
+                </div>
+
+                <!-- Leaflet Map -->
+                <div class="map-area">
+                    <div id="map"></div>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:12px;align-items:center">
+                    <div style="flex:1">
+                        <small style="color:var(--muted)">Map overlays: Radar / Satellite / AWS</small>
+                    </div>
+                    <div style="font-size:13px;color:var(--muted)">Nowcast (0-3h) • Medium-term (24h)
+                    </div>
+                </div>
+            </section>
+
+            <!-- Alerts Panel -->
+            <aside class="panel">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="font-weight:800">Active Alerts</div>
+                    <div style="font-size:12px;color:var(--muted)">Auto-refresh: <span id="refreshLabel">5s</span>
+                    </div>
+                </div>
+                <div class="alerts" id="alertsList"></div>
+                <div>
+                    <div style="font-weight:700;margin-bottom:6px">Explainability</div>
+                    <div class="explain" id="explainBox">No alerts yet.</div>
+                </div>
+                <div>
+                    <div style="font-weight:700;margin-bottom:6px">Thresholds & Controls</div>
+                    <div class="thresholds">
+                    <div class="control-row">
+                        <label>Wind gust (km/h)</label>
+                        <input id="windThresh" type="range" min="20" max="120" value="65"/>
+                        <div id="windVal">65</div>
+                    </div>
+                    <div class="control-row">
+                        <label>Thunderstorm prob (%)</label>
+                        <input id="stormThresh" type="range" min="20" max="100" value="80"/>
+                        <div id="stormVal">80</div>
+                    </div>
+                        <div style="display:flex;gap:8px;margin-top:8px">
+                            <button class="btn" id="applyThresh">Apply</button>
+                            <button class="btn" id="resetThresh">Reset</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <div class="banner" id="alertBanner"></div>
+        <footer class="note">Prototype UI — connect backend endpoints</footer>
+        </div>
+
+        <script>
+            // --- Leaflet Map (Light Mode / Default) ---
+            const map = L.map('map').setView([23.0225, 72.5714], 11); // Ahmedabad City
+
+            // Default OSM light tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Airport Marker
+            const airportCoords = [23.0774, 72.6346];
+            L.marker(airportCoords).addTo(map)
+            .bindPopup('Sardar Vallabhbhai Patel International Airport')
+            .openPopup();
+
+            // --- Custom Button to Go to Airport ---
+            const airportControl = L.control({position: 'topright'});
+
+            airportControl.onAdd = function(map) {
+            const btn = L.DomUtil.create('button', 'btn');
+            btn.innerHTML = "✈ Airport";
+            btn.style.background = "#06b6d4";
+            btn.style.color = "#042027";
+            btn.style.fontWeight = "bold";
+            btn.style.border = "none";
+            btn.style.padding = "6px 10px";
+            btn.style.borderRadius = "8px";
+            btn.style.cursor = "pointer";
+
+            btn.onclick = function() {
+                map.setView(airportCoords, 14); // Zoom into airport
+            };
+
+            return btn;
+            };
+            airportControl.addTo(map);
+
+            // --- Demo Time Updater ---
+            setInterval(()=> {
+            document.getElementById('timeLabel').textContent = new Date().toLocaleTimeString();
+            },1000);
+        </script>
+    </body>
+</html>
