@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulation - Wind & Thunderstorm</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body class="map-body">
+
+  <div class="map-container">
+    <!-- Left box: Map -->
+    <div class="map-box">
+      <div id="map"></div>
+    </div>
+
+    <!-- Right box: Prediction Info -->
+    <div class="info-box">
+      <h2>Latest Prediction</h2>
+      <p id="timestamp">Timestamp: --</p>
+      <p id="wind">Wind Speed: -- km/h</p>
+      <p id="thunder">Thunderstorm: --</p>
+      <p id="prob">Thunder Probability: -- %</p>
+    </div>
+  </div>
+
+  <script>
+    const map = L.map('map').setView([23.0225, 72.5714], 11);
+
+    // Map tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Marker and storm circle
+    let predMarker = L.marker([23.0225, 72.5714]).addTo(map);
+    let stormCircle = L.circle([23.0225, 72.5714], { radius: 0, color: 'red', fillOpacity: 0.3 }).addTo(map);
+
+    // Fetch predictions from Flask
+    async function updatePrediction() {
+      try {
+        const res = await fetch('http://127.0.0.1:5000/predict');
+        const data = await res.json();
+
+        // Update marker & circle
+        predMarker.setLatLng([23.0225, 72.5714]);
+        stormCircle.setLatLng(predMarker.getLatLng());
+        stormCircle.setRadius(data.thunder_prob * 5000); // scale probability
+
+        // Animate marker slightly
+        predMarker.setLatLng([
+          23.0225 + 0.002 * Math.sin(Date.now() / 500),
+          72.5714 + 0.002 * Math.cos(Date.now() / 500)
+        ]);
+
+        // Update info text
+        document.getElementById('timestamp').innerText = `Timestamp: ${data.timestamp}`;
+        document.getElementById('wind').innerText = `Wind Speed: ${data.wind_speed.toFixed(2)} km/h`;
+        document.getElementById('thunder').innerText = `Thunderstorm: ${data.thunderstorm ? 'Yes' : 'No'}`;
+        document.getElementById('prob').innerText = `Thunder Probability: ${(data.thunder_prob * 100).toFixed(1)} %`;
+
+      } catch (err) {
+        console.error("Error fetching prediction:", err);
+      }
+    }
+
+    // Start loop
+    updatePrediction();
+    setInterval(updatePrediction, 1000); // update every 1 sec
+  </script>
+
+</body>
+</html>
