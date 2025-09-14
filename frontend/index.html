@@ -142,6 +142,58 @@
             setInterval(()=> {
             document.getElementById('timeLabel').textContent = new Date().toLocaleTimeString();
             },1000);
+
+            // --- Fetch Prediction from Backend ---
+    function getPrediction(lat, lon) {
+        fetch('http://localhost:5000/predict?lat=${lat}&lon=${lon}')
+            .then(res => res.json())
+            .then(data => {
+                const msg = `
+                    🌡 Temperature, Pressure, Humidity are coming from API (backend handles)<br>
+                    🌬 Predicted Wind Speed (1h ahead): <b>${data.wind_speed} km/h</b><br>
+                    ⛈ Thunderstorm: <b>${data.thunderstorm ? 'Yes' : 'No'}</b><br>
+                    🔥 Probability: <b>${data.thunderstorm_prob}%</b>
+                `;
+
+                // Show popup on map at Ahmedabad
+                L.popup()
+                 .setLatLng([23.0225, 72.5714])
+                 .setContent(msg)
+                 .openOn(map);
+
+                // Also update Alerts panel
+                document.getElementById("alertsList").innerHTML = `
+                    <div class="alert">
+                        <strong>Wind Speed:</strong> ${data.wind_speed} km/h<br>
+                        <strong>Thunderstorm:</strong> ${data.thunderstorm ? 'Yes' : 'No'}<br>
+                        <strong>Probability:</strong> ${data.thunderstorm_prob} %
+                    </div>
+                `;
+            })
+            .catch(err => console.error("Error:", err));
+    }
+
+    // --- Add Button for Forecast ---
+    const forecastControl = L.control({position: 'topright'});
+    forecastControl.onAdd = function(map) {
+        const btn = L.DomUtil.create('button', 'btn');
+        btn.innerHTML = "📡 Forecast";
+        btn.style.background = "#f97316";
+        btn.style.color = "white";
+        btn.style.fontWeight = "bold";
+        btn.style.border = "none";
+        btn.style.padding = "6px 10px";
+        btn.style.borderRadius = "8px";
+        btn.style.cursor = "pointer";
+
+        btn.onclick = function() {
+            getPrediction(23.0225, 72.5714); // Ahmedabad coords
+        };
+
+        return btn;
+    };
+    forecastControl.addTo(map);
+
         </script>
     </body>
 </html>
