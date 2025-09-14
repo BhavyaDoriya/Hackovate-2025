@@ -1,199 +1,76 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width,initial-scale=1" />
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wind & Thunderstorm Simulation</title>
 
-        <title>Airfield Thunderstorm & Wind Alert — Frontend Prototype</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-        <!-- External CSS -->
-        <link rel="stylesheet" href="style.css">
+<style>
+  body, html { margin:0; height:100%; display:flex; flex-direction: column; }
+  #map { height:70%; }
+  #info { height:30%; padding: 10px; background: #f0f0f0; font-family: sans-serif; }
+  #info h2 { margin: 0 0 10px 0; }
+  #info p { margin: 4px 0; font-size: 16px; }
+</style>
+</head>
+<body>
 
-        <!-- Leaflet CSS -->
-        <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<div id="map"></div>
+<div id="info">
+    <h2>Latest Prediction</h2>
+    <p id="timestamp">Timestamp: --</p>
+    <p id="wind">Wind Speed: -- km/h</p>
+    <p id="thunder">Thunderstorm: --</p>
+    <p id="prob">Thunder Probability: -- %</p>
+</div>
 
-        <!-- Leaflet JS -->
-        <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    </head>
-    <body>
-        <div class="app" role="application" aria-label="Airfield weather alert dashboard">
+<script>
+const map = L.map('map').setView([23.0225, 72.5714], 11);
 
-        <header>
-            <div class="title">
-                <svg width="42" height="42" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#052233"/><path d="M6 14c2.5-6 9-6 11 0" stroke="#5eead4" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-                <div>
-                    <h1>Airfield Storm & Wind Alert</h1>
-                    <p id="airfieldName">Airfield: <strong id="airfieldLabel">K-ALPHA (demo)</strong></p>
-                </div>
-            </div>
-            <div style="display:flex;gap:12px;align-items:center">
-                <div id="nowStatus" class="status safe">Safe</div>
-                <button class="btn" id="settingsBtn">⚙</button>
-                <button class="btn primary" id="ackAllBtn">Acknowledge All</button>
-            </div>
-        </header>
+// Map tiles
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
 
-        <div class="main">
-            <!-- Map Section -->
-            <section class="map-card">
-                <div class="map-topbar">
-                    <div style="display:flex;gap:12px;align-items:center">
-                        <div style="font-weight:700">Live Radar</div>
-                        <div style="color:var(--muted);font-size:13px">Now: <span id="timeLabel">--:--:--</span></div>
-                    </div>
-                    <div class="controls">
-                        <button class="btn" id="togglePlay">Pause</button>
-                        <button class="btn" id="centerBtn">Center</button>
-                        <button class="btn" id="downloadBtn">Export Alerts</button>
-                    </div>
-                </div>
+// Marker and storm circle
+let predMarker = L.marker([23.0225, 72.5714]).addTo(map);
+let stormCircle = L.circle([23.0225, 72.5714], { radius: 0, color: 'red', fillOpacity: 0.3 }).addTo(map);
 
-                <!-- Leaflet Map -->
-                <div class="map-area">
-                    <div id="map"></div>
-                </div>
+// Fetch predictions from Flask
+async function updatePrediction() {
+    try {
+        const res = await fetch('http://127.0.0.1:5000/predict');
+        const data = await res.json();
 
-                <div style="display:flex;gap:10px;margin-top:12px;align-items:center">
-                    <div style="flex:1">
-                        <small style="color:var(--muted)">Map overlays: Radar / Satellite / AWS</small>
-                    </div>
-                    <div style="font-size:13px;color:var(--muted)">Nowcast (0-3h) • Medium-term (24h)
-                    </div>
-                </div>
-            </section>
+        // Update marker & circle
+        predMarker.setLatLng([23.0225, 72.5714]);
+        stormCircle.setLatLng(predMarker.getLatLng());
+        stormCircle.setRadius(data.thunder_prob * 5000); // scale probability
 
-            <!-- Alerts Panel -->
-            <aside class="panel">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                    <div style="font-weight:800">Active Alerts</div>
-                    <div style="font-size:12px;color:var(--muted)">Auto-refresh: <span id="refreshLabel">5s</span>
-                    </div>
-                </div>
-                <div class="alerts" id="alertsList"></div>
-                <div>
-                    <div style="font-weight:700;margin-bottom:6px">Explainability</div>
-                    <div class="explain" id="explainBox">No alerts yet.</div>
-                </div>
-                <div>
-                    <div style="font-weight:700;margin-bottom:6px">Thresholds & Controls</div>
-                    <div class="thresholds">
-                    <div class="control-row">
-                        <label>Wind gust (km/h)</label>
-                        <input id="windThresh" type="range" min="20" max="120" value="65"/>
-                        <div id="windVal">65</div>
-                    </div>
-                    <div class="control-row">
-                        <label>Thunderstorm prob (%)</label>
-                        <input id="stormThresh" type="range" min="20" max="100" value="80"/>
-                        <div id="stormVal">80</div>
-                    </div>
-                        <div style="display:flex;gap:8px;margin-top:8px">
-                            <button class="btn" id="applyThresh">Apply</button>
-                            <button class="btn" id="resetThresh">Reset</button>
-                        </div>
-                    </div>
-                </div>
-            </aside>
-        </div>
+        // Animate marker slightly
+        predMarker.setLatLng([
+            23.0225 + 0.002*Math.sin(Date.now()/500),
+            72.5714 + 0.002*Math.cos(Date.now()/500)
+        ]);
 
-        <div class="banner" id="alertBanner"></div>
-        <footer class="note">Prototype UI — connect backend endpoints</footer>
-        </div>
+        // Update info text
+        document.getElementById('timestamp').innerText = `Timestamp: ${data.timestamp}`;
+        document.getElementById('wind').innerText = `Wind Speed: ${data.wind_speed.toFixed(2)} km/h`;
+        document.getElementById('thunder').innerText = `Thunderstorm: ${data.thunderstorm ? 'Yes' : 'No'}`;
+        document.getElementById('prob').innerText = `Thunder Probability: ${(data.thunder_prob*100).toFixed(1)} %`;
 
-        <script>
-            // --- Leaflet Map (Light Mode / Default) ---
-            const map = L.map('map').setView([23.0225, 72.5714], 11); // Ahmedabad City
-
-            // Default OSM light tiles
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
-
-            // Airport Marker
-            const airportCoords = [23.0774, 72.6346];
-            L.marker(airportCoords).addTo(map)
-            .bindPopup('Sardar Vallabhbhai Patel International Airport')
-            .openPopup();
-
-            // --- Custom Button to Go to Airport ---
-            const airportControl = L.control({position: 'topright'});
-
-            airportControl.onAdd = function(map) {
-            const btn = L.DomUtil.create('button', 'btn');
-            btn.innerHTML = "✈ Airport";
-            btn.style.background = "#06b6d4";
-            btn.style.color = "#042027";
-            btn.style.fontWeight = "bold";
-            btn.style.border = "none";
-            btn.style.padding = "6px 10px";
-            btn.style.borderRadius = "8px";
-            btn.style.cursor = "pointer";
-
-            btn.onclick = function() {
-                map.setView(airportCoords, 14); // Zoom into airport
-            };
-
-            return btn;
-            };
-            airportControl.addTo(map);
-
-            // --- Demo Time Updater ---
-            setInterval(()=> {
-            document.getElementById('timeLabel').textContent = new Date().toLocaleTimeString();
-            },1000);
-
-            // --- Fetch Prediction from Backend ---
-    function getPrediction(lat, lon) {
-        fetch('http://localhost:5000/predict?lat=${lat}&lon=${lon}')
-            .then(res => res.json())
-            .then(data => {
-                const msg = `
-                    🌡 Temperature, Pressure, Humidity are coming from API (backend handles)<br>
-                    🌬 Predicted Wind Speed (1h ahead): <b>${data.wind_speed} km/h</b><br>
-                    ⛈ Thunderstorm: <b>${data.thunderstorm ? 'Yes' : 'No'}</b><br>
-                    🔥 Probability: <b>${data.thunderstorm_prob}%</b>
-                `;
-
-                // Show popup on map at Ahmedabad
-                L.popup()
-                 .setLatLng([23.0225, 72.5714])
-                 .setContent(msg)
-                 .openOn(map);
-
-                // Also update Alerts panel
-                document.getElementById("alertsList").innerHTML = `
-                    <div class="alert">
-                        <strong>Wind Speed:</strong> ${data.wind_speed} km/h<br>
-                        <strong>Thunderstorm:</strong> ${data.thunderstorm ? 'Yes' : 'No'}<br>
-                        <strong>Probability:</strong> ${data.thunderstorm_prob} %
-                    </div>
-                `;
-            })
-            .catch(err => console.error("Error:", err));
+    } catch (err) {
+        console.error("Error fetching prediction:", err);
     }
+}
 
-    // --- Add Button for Forecast ---
-    const forecastControl = L.control({position: 'topright'});
-    forecastControl.onAdd = function(map) {
-        const btn = L.DomUtil.create('button', 'btn');
-        btn.innerHTML = "📡 Forecast";
-        btn.style.background = "#f97316";
-        btn.style.color = "white";
-        btn.style.fontWeight = "bold";
-        btn.style.border = "none";
-        btn.style.padding = "6px 10px";
-        btn.style.borderRadius = "8px";
-        btn.style.cursor = "pointer";
+// Start loop
+updatePrediction();
+setInterval(updatePrediction, 1000); // update every 1 sec
+</script>
 
-        btn.onclick = function() {
-            getPrediction(23.0225, 72.5714); // Ahmedabad coords
-        };
-
-        return btn;
-    };
-    forecastControl.addTo(map);
-
-        </script>
-    </body>
+</body>
 </html>
